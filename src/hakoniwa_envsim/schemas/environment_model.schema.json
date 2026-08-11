@@ -1,0 +1,305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hakoniwa Environment Model",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "スキーマバージョン"
+    },
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "grid": {
+      "$ref": "#/$defs/Grid"
+    },
+    "base": {
+      "$ref": "#/$defs/Base"
+    },
+    "zones": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Zone" }
+    }
+  },
+  "required": ["version", "meta", "grid", "base"],
+  "additionalProperties": false,
+
+  "$defs": {
+    "Meta": {
+      "type": "object",
+      "properties": {
+        "crs": {
+          "type": "string",
+          "description": "座標参照系。通常は 'local-enu'。将来的にEPSGコードも可。"
+        },
+        "origin_latlon": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "ローカル座標原点に対応する緯度・経度"
+        },
+        "axis": {
+          "type": "string",
+          "enum": ["ENU", "NED"],
+          "description": "軸の取り方 (例: ENU = East-North-Up, NED = North-East-Down)"
+        },
+        "units": {
+          "$ref": "#/$defs/Units"
+        }
+      },
+      "required": ["crs", "origin_latlon", "axis", "units"],
+      "additionalProperties": false
+    },
+
+    "Units": {
+      "type": "object",
+      "properties": {
+        "length": { "type": "string" },
+        "speed": { "type": "string" },
+        "temp": { "type": "string" }
+      },
+      "required": ["length", "speed", "temp"],
+      "additionalProperties": false
+    },
+
+    "Grid": {
+      "type": "object",
+      "properties": {
+        "extent_m": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "cell_m": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "levels": { "type": "integer" }
+      },
+      "required": ["extent_m", "cell_m", "levels"],
+      "additionalProperties": false
+    },
+
+    "Base": {
+      "type": "object",
+      "properties": {
+        "wind": { "$ref": "#/$defs/WindBase" },
+        "temperature_C": { "type": "number" },
+        "pressure_atm": { "type": "number" },
+        "gps_strength": {
+          "type": "number",
+          "minimum": 0.0, "maximum": 1.0,
+          "default": 1.0,
+          "description": "GNSS 受信強度(0..1)。1=良好、0=遮蔽。"
+        },        
+        "time_mods": { "$ref": "#/$defs/TimeMods" }
+      },
+      "required": ["wind"],
+      "additionalProperties": false
+    },
+
+    "WindBase": {
+      "type": "object",
+      "properties": {
+        "vector_ms": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "dir_deg": { "type": "number" },
+        "speed_ms": { "type": "number" },
+        "grad_ms_per_km": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "oneOf": [
+        { "required": ["vector_ms"] },
+        { "required": ["dir_deg", "speed_ms"] }
+      ],
+      "additionalProperties": false
+    },
+
+    "Zone": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "shape": { "$ref": "#/$defs/Shape" },
+        "effect": { "$ref": "#/$defs/Effect" },
+        "priority": { "type": "integer" },
+        "active": { "$ref": "#/$defs/Active" },
+        "time_mods": { "$ref": "#/$defs/TimeMods" }
+      },
+      "required": ["name", "shape", "effect"],
+      "additionalProperties": false
+    },
+
+    "Shape": {
+      "type": "object",
+      "properties": {
+        "circle": { "$ref": "#/$defs/Circle" },
+        "rect": { "$ref": "#/$defs/Rect" }
+      },
+      "oneOf": [
+        { "required": ["circle"] },
+        { "required": ["rect"] }
+      ],
+      "additionalProperties": false
+    },
+
+    "Circle": {
+      "type": "object",
+      "properties": {
+        "center_m": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "radius_m": { "type": "number" }
+      },
+      "required": ["center_m", "radius_m"],
+      "additionalProperties": false
+    },
+
+    "Rect": {
+      "type": "object",
+      "properties": {
+        "center_m": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "size_m":   { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "min_m":    { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "max_m":    { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+      },
+      "oneOf": [
+        { "required": ["center_m", "size_m"] },
+        { "required": ["min_m", "size_m"] },
+        { "required": ["min_m", "max_m"] } 
+      ],
+      "additionalProperties": false
+    },
+    "Effect": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "enum": ["absolute", "scale", "add", "vortex", "turbulence"] },
+
+        "wind_ms": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3, "maxItems": 3,
+          "description": "absolute モード時の風ベクトル"
+        },
+        "scale": { "type": "number", "description": "scale モード時の倍率" },
+        "add_ms": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3, "maxItems": 3,
+          "description": "add モード時の加算ベクトル"
+        },
+
+        "vortex": {
+          "type": "object",
+          "properties": {
+            "center_m": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+            "gain": { "type": "number" },
+            "decay": { "type": "string", "enum": ["inv_r", "gaussian"], "default": "inv_r" },
+            "sigma_m": { "type": "number" },
+            "r_min_m": { "type": "number", "default": 0.1 },
+            "clockwise": { "type": "boolean", "default": true },
+            "max_ms": { "type": "number" }
+          },
+          "required": ["center_m", "gain"],
+          "additionalProperties": false
+        },
+
+        "turbulence": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["gauss", "perlin", "ou"] },
+            "std_ms": { "type": "number" },
+            "seed": { "type": "integer" }
+          },
+          "required": ["type", "std_ms"],
+          "additionalProperties": false
+        },
+        "gps_abs": {
+          "type": "number", "minimum": 0.0, "maximum": 1.0,
+          "description": "このゾーン内でのGPS強度を絶対値で指定"
+        },
+        "gps_add": {
+          "type": "number",
+          "description": "GPS強度の加算（クリップは0..1で実装側が行う）"
+        },
+        "gps_scale": {
+          "type": "number",
+          "description": "GPS強度の倍率（実装側で0..1にクリップ）"
+        }
+      },
+      "required": ["mode"],
+      "allOf": [
+        { "if": { "properties": { "mode": { "const": "absolute" } } }, "then": { "required": ["wind_ms"] } },
+        { "if": { "properties": { "mode": { "const": "scale"    } } }, "then": { "required": ["scale"] } },
+        { "if": { "properties": { "mode": { "const": "add"      } } }, "then": { "required": ["add_ms"] } },
+        { "if": { "properties": { "mode": { "const": "vortex"   } } }, "then": { "required": ["vortex"] } },
+        { "if": { "properties": { "mode": { "const": "turbulence"} } }, "then": { "required": ["turbulence"] } }
+      ],
+      "additionalProperties": false
+    },
+
+    "Active": {
+      "type": "object",
+      "properties": {
+        "t_from_s": { "type": "number" },
+        "t_to_s": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+
+    "TimeMods": {
+      "type": "object",
+      "properties": {
+        "apply_to": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "periodic": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Periodic" }
+        },
+        "turbulence": { "$ref": "#/$defs/Turbulence" }
+      },
+      "additionalProperties": false
+    },
+
+    "Periodic": {
+      "type": "object",
+      "properties": {
+        "amp": { "type": "number" },
+        "freq_hz": { "type": "number" },
+        "phase_deg": { "type": "number" }
+      },
+      "required": ["amp", "freq_hz"],
+      "additionalProperties": false
+    },
+
+    "Turbulence": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["gauss", "perlin", "ou"]
+        },
+        "std_ms": { "type": "number" },
+        "seed": { "type": "integer" }
+      },
+      "required": ["type", "std_ms"],
+      "additionalProperties": false
+    }
+  }
+}
