@@ -18,6 +18,7 @@ CityGMLから建物MJCF、地形HField、Mapray用GeoTIFF、ブラウザ用標�
 - 環境データの2D可視化
 - ブラウザ用zone editor・mission editor
 - PLATEAU CityGML建物の抽出、LOD1近似、OBB化、MJCF生成
+- センサー用環境ジオメトリのペア生成（OBB JSON → MuJoCo env.xml ＋ Godot env.tscn）
 - 既存MuJoCo機体モデルへの建物geom統合と検証manifest生成
 - PLATEAU TINReliefから共通標高格子、MuJoCo HField、GeoTIFF生成
 - Mapray Building/DEM Datasetアップロードのplan・実行・状態記録
@@ -51,6 +52,7 @@ CityGMLから建物MJCF、地形HField、Mapray用GeoTIFF、ブラウザ用標�
 ```text
 hakoniwa-simenv-data/
 |- examples/datasets/                 サンプル環境モデルと生成例
+|- examples/sensor_envs/              センサー用OBBジオメトリとenv.xml/env.tscnペア
 |- src/hakoniwa_envsim/
 |  |- creator/                        Creatorモデル変換
 |  |- model/                          実行モデルローダー
@@ -281,6 +283,55 @@ python tools\mapray_dem_upload.py upload `
 
 アップロードコマンドはMapray Cloudに新しい外部状態を作ります。実行前に対象Organization、
 保存量、名称、attributionを確認してください。Tokenと署名付きURLはstateへ保存しません。
+
+## センサー用環境ジオメトリ
+
+センシング用途の環境ジオメトリを、**単一真実源のOBB JSON**（ENU: x=East, y=North, z=Up）から
+2つのエンジン向けに**ペア生成**します。旧 `hakoniwa-envsim-sensor` を廃止し本リポジトリへ統合したものです。
+
+```
+OBB JSON（単一真実源）
+  ├─ obb2mjcf  → env.xml   … hakoniwa-mujoco-sensor が mj_ray でセンシング
+  └─ obb2godot → env.tscn  … hakoniwa-godot-drone が可視化
+```
+
+両出力は定義上**同一の箱**になります（座標変換は `conventions.py` に集約）。
+
+| パス | 内容 |
+|---|---|
+| `src/city_pipeline/conventions.py` | 座標規約・z正規化・OBB→Godot変換・角点計算・MJCF/TSCNパーサ |
+| `src/city_pipeline/obb2godot.py` | OBB JSON → Godot `.tscn`（BoxMesh＋BoxShape3D の StaticBody3D `body_<id>`） |
+| `src/city_pipeline/build_pair.py` | OBB JSON → env.xml（obb2mjcf 呼出）＋ env.tscn を一括生成 |
+| `src/city_pipeline/actors.py` | 生成済み env.xml に free joint の動的ACTOR body を追加／表示専用ジオメトリを除去 |
+| `examples/sensor_envs/` | サンプル OBB（`simple_room` = 床+4壁+柱、`open_field` = 地面のみ）と生成物 `generated/` |
+| `tests/test_pair_consistency.py` | env.xml と env.tscn の角点一致を検証（yaw含む） |
+
+```bash
+# OBB JSON から env.xml + env.tscn を生成
+PYTHONPATH=src/city_pipeline python3 -m build_pair \
+  --inp examples/sensor_envs/simple_room/simple_room.obb.json \
+  --out-xml /tmp/env.xml --out-tscn /tmp/env.tscn
+
+# 動く物体（ACTOR）を追加。free joint なので qvel が書けて Doppler が出る
+PYTHONPATH=src/city_pipeline python3 -m actors \
+  --xml /tmp/env.xml --out /tmp/env_actors.xml --actor drone2
+
+# 表示専用ジオメトリ: Godot は描くがセンシング世界からは除去（地面反射でレーダーが埋まるのを防ぐ）
+PYTHONPATH=src/city_pipeline python3 -m actors \
+  --xml /tmp/env.xml --out /tmp/env_nofloor.xml --actor drone2 --drop ground
+
+# 整合性テスト
+python3 tests/test_pair_consistency.py
+```
+
+`actors.py` が **mocap body ではなく free joint** を使うのは、MuJoCo の `mj_objectVelocity` が
+mocap body には速度 0 を返し、レーダーの Doppler が出なくなるためです。
+
+| フレーム | 軸 |
+|---|---|
+| OBB JSON（単一真実源） | ENU: x=East, y=North, z=Up |
+| MuJoCo（obb2mjcf） | X=North, Y=West(-East), Z=Up |
+| Godot（obb2godot） | X=East, Y=Up, Z=North |
 
 ## テスト
 
