@@ -235,6 +235,22 @@ python tools\city_pipeline.py terrain `
 MuJoCo/Three.jsは`modelHeightsM`、Maprayだけが
 `modelHeightsM + zBaselineM`を絶対標高として使用します。
 
+## 広域AOIのdry-run
+
+`wide-area-plan`は、運航GeoJSONの境界とローカルPLATEAU原本を照合し、
+対象GML・texture量、AOI寸法、Mapray Dataset分割の下限、未充足coverageをJSONへ出力します。
+ファイル抽出やMapray Cloud更新は行いません。
+
+```powershell
+python tools\city_pipeline.py wide-area-plan `
+  --config runtime\windows\scenarios\shibuya\wide-area-5km.json `
+  --output runtime\windows\generated\shibuya\wide-area-plan.json
+```
+
+`ready_for_mapray_upload`が`false`の場合は、`blocking_reasons`に示された自治体データ等を
+追加して再実行します。`minimum_dataset_count_before_citygml_split`はファイル数制約だけを
+用いた下限であり、texture参照を保つCityGML分割後は増える場合があります。
+
 ## Mapray Cloudツール
 
 `.env.example`を`.env`へコピーし、Organization Tokenをローカルに設定します。

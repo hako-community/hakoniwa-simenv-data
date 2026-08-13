@@ -38,6 +38,7 @@ from terrain_pipeline import (  # noqa: E402
     write_hfield_binary,
     write_mapray_geotiff,
 )
+from wide_area_planner import build_wide_area_plan  # noqa: E402
 
 
 def resolve_workspace_path(value: str | Path) -> Path:
@@ -256,6 +257,35 @@ def terrain(args: argparse.Namespace) -> int:
     return 0
 
 
+def wide_area_plan(args: argparse.Namespace) -> int:
+    config_path = resolve_workspace_path(args.config)
+    output_path = resolve_workspace_path(args.output)
+    plan = build_wide_area_plan(config_path, WORKSPACE_ROOT)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(plan, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(
+        f"[OK] AOI {plan['aoi']['measured_width_m']:.1f}m x "
+        f"{plan['aoi']['measured_height_m']:.1f}m / "
+        f"dimension={plan['aoi']['dimension_check']}"
+    )
+    for source in plan["sources"]:
+        print(
+            f"     {source['id']}: GML={source['selected_gml_count']} "
+            f"assets={source['selected_asset_file_count']} "
+            f"coverage={source['aoi_coverage']}"
+        )
+    print(
+        "[BLOCKED] Mapray upload requires more source coverage"
+        if not plan["ready_for_mapray_upload"]
+        else "[READY] Mapray upload bundle preparation may proceed"
+    )
+    print(f"[OK] plan: {output_path}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -280,6 +310,13 @@ def main() -> int:
     )
     terrain_parser.add_argument("--no-validate", action="store_true", help="skip MuJoCo ray validation")
     terrain_parser.set_defaults(handler=terrain)
+    wide_parser = subparsers.add_parser(
+        "wide-area-plan",
+        help="inventory a wide-area AOI without extracting files or changing Mapray Cloud",
+    )
+    wide_parser.add_argument("--config", required=True, help="wide-area planning JSON")
+    wide_parser.add_argument("--output", required=True, help="dry-run plan output JSON")
+    wide_parser.set_defaults(handler=wide_area_plan)
     args = parser.parse_args()
     try:
         return args.handler(args)
