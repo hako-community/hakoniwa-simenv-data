@@ -1,0 +1,56 @@
+{
+  "_comment": "simple_room: hand-authored OBB sample (ENU: x=East, y=North, z=Up). Room 10x8x3 with floor, 4 walls and 1 pillar. yaw=0 (axis-aligned).",
+  "coordinate_system": "enu",
+  "results": [
+    {
+      "id": "floor",
+      "center": [0.0, 0.0],
+      "half_size": [5.0, 4.0],
+      "yaw_rad": 0.0,
+      "zmin": 0.0,
+      "zmax": 0.1,
+      "rgba": [0.6, 0.6, 0.6, 1.0]
+    },
+    {
+      "id": "wall_north",
+      "center": [0.0, 4.0],
+      "half_size": [5.0, 0.1],
+      "yaw_rad": 0.0,
+      "zmin": 0.0,
+      "zmax": 3.0
+    },
+    {
+      "id": "wall_south",
+      "center": [0.0, -4.0],
+      "half_size": [5.0, 0.1],
+      "yaw_rad": 0.0,
+      "zmin": 0.0,
+      "zmax": 3.0
+    },
+    {
+      "id": "wall_east",
+      "center": [5.0, 0.0],
+      "half_size": [0.1, 4.0],
+      "yaw_rad": 0.0,
+      "zmin": 0.0,
+      "zmax": 3.0
+    },
+    {
+      "id": "wall_west",
+      "center": [-5.0, 0.0],
+      "half_size": [0.1, 4.0],
+      "yaw_rad": 0.0,
+      "zmin": 0.0,
+      "zmax": 3.0
+    },
+    {
+      "id": "pillar_1",
+      "center": [1.5, 1.0],
+      "half_size": [0.3, 0.3],
+      "yaw_rad": 0.0,
+      "zmin": 0.0,
+      "zmax": 2.5,
+      "rgba": [0.8, 0.3, 0.3, 1.0]
+    }
+  ]
+}

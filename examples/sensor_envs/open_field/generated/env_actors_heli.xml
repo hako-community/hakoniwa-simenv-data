@@ -1,0 +1,9 @@
+<mujoco model="obb_world">
+  <size nstack="40000000" nconmax="500000" />
+  <worldbody>
+    <body name="actor_drone2" pos="0 0 -50.0">
+      <freejoint name="actor_drone2_free" />
+      <geom name="geom_actor_drone2" type="box" size="1.4 1.4 0.85" rgba="0.9 0.3 0.2 1" contype="1" conaffinity="0" />
+    </body>
+  </worldbody>
+</mujoco>
