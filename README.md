@@ -209,6 +209,10 @@ python tools\city_pipeline.py convert `
 - 壁厚、形状近似、衝突bit
 - 基準機体MJCF
 
+`citygml.measured_height_ids`へ建物IDを明示すると、その建物だけLOD1上端より
+`bldg:measuredHeight`を優先した衝突プロキシを生成できます。塔など、LOD1が低層の
+基壇だけを表し、実形状の高さがLOD2/LOD3に収録される地物向けです。
+
 主な生成物:
 
 - `buildings-lod1.json`

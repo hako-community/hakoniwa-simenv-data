@@ -11,6 +11,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT / "src" / "city_pipeline"))
 
 import gml_indexer
+import gml_lod1_extract
 from city_pipeline_api import (
     compare_building_positions,
     filter_citygml,
@@ -29,6 +30,35 @@ from terrain_pipeline import (
 
 
 class CityPipelineTests(unittest.TestCase):
+    def test_selected_building_can_use_measured_height_for_collision_proxy(self):
+        gml = """<?xml version="1.0" encoding="UTF-8"?>
+<core:CityModel xmlns:core="http://www.opengis.net/citygml/2.0"
+ xmlns:bldg="http://www.opengis.net/citygml/building/2.0"
+ xmlns:gml="http://www.opengis.net/gml">
+ <core:cityObjectMember><bldg:Building gml:id="tower">
+  <bldg:measuredHeight uom="m">332.1</bldg:measuredHeight>
+  <bldg:lod1Solid><gml:Solid><gml:exterior><gml:CompositeSurface>
+   <gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing>
+    <gml:posList>35.0 139.0 18.4 35.0 139.001 18.4 35.001 139.0 18.4 35.0 139.0 18.4</gml:posList>
+   </gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember>
+   <gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing>
+    <gml:posList>35.0 139.0 60.3 35.0 139.001 60.3 35.001 139.0 60.3 35.0 139.0 60.3</gml:posList>
+   </gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember>
+  </gml:CompositeSurface></gml:exterior></gml:Solid></bldg:lod1Solid>
+ </bldg:Building></core:cityObjectMember>
+</core:CityModel>"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tower_bldg_6697_op.gml"
+            path.write_text(gml, encoding="utf-8")
+            regular = gml_lod1_extract.extract_buildings_lod1(path)
+            proxy = gml_lod1_extract.extract_buildings_lod1(
+                path, measured_height_ids={"tower"}
+            )
+            self.assertAlmostEqual(60.3, regular[0]["zmax"])
+            self.assertAlmostEqual(350.5, proxy[0]["zmax"])
+            self.assertEqual("measuredHeight", proxy[0]["height_source"])
+            self.assertAlmostEqual(60.3, proxy[0]["lod1_zmax"])
+
     def test_indexer_extracts_only_the_kind_segment(self):
         with tempfile.TemporaryDirectory() as directory:
             gml = Path(directory) / "udx" / "bldg" / "53393567_bldg_6697_op.gml"
