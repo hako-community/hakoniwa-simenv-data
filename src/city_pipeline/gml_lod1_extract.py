@@ -224,7 +224,8 @@ def is_within_bounds(footprint, bounds):
 
 
 def extract_buildings_lod1(gml_path, to_epsg=None, src_epsg=4326,
-                           base_eps=0.2, swap_latlon=True, origin_xy=None, bounds=None):
+                           base_eps=0.2, swap_latlon=True, origin_xy=None, bounds=None,
+                           measured_height_ids=None):
     """
     1つの GML ファイルから bldg:lod1Solid の点群を抽出し、(XY凸包, zmin, zmax) を返す。
     - base_eps: zmin からの許容差（m）。底面近傍点の抽出に使用。
@@ -236,6 +237,7 @@ def extract_buildings_lod1(gml_path, to_epsg=None, src_epsg=4326,
 
     print(f"[INFO] Processing GML: {gml_path}")
     results = []
+    measured_height_ids = set(measured_height_ids or ())
     # CityGMLでは bldg:Building 要素が親。複数棟あればループで拾う
     for bldg in root.findall(".//bldg:Building", NS):
         bid = (bldg.get("{http://www.opengis.net/gml}id")
@@ -270,6 +272,19 @@ def extract_buildings_lod1(gml_path, to_epsg=None, src_epsg=4326,
         zs = np.array([p[2] for p in xyz], dtype=float)
         zmin = float(np.min(zs))
         zmax = float(np.max(zs))
+        lod1_zmax = zmax
+        measured_height = None
+        height_source = "lod1Solid"
+        if bid in measured_height_ids:
+            measured_height_text = bldg.findtext("bldg:measuredHeight", default="", namespaces=NS)
+            try:
+                measured_height = float(measured_height_text)
+            except (TypeError, ValueError):
+                measured_height = None
+            if measured_height is not None and measured_height > 0:
+                zmax = max(zmax, zmin + measured_height)
+                if zmax > lod1_zmax:
+                    height_source = "measuredHeight"
 
         # 底面近傍 (|z - zmin| <= base_eps) の XY を抽出
         base_xy = [(x, y, z) for (x, y, z) in xyz if abs(z - zmin) <= base_eps]
@@ -287,12 +302,19 @@ def extract_buildings_lod1(gml_path, to_epsg=None, src_epsg=4326,
         if origin_xy is not None and not is_within_bounds(footprint, bounds):
             continue  # 範囲外なのでスキップ
 
-        results.append({
+        result = {
             "id": bid,
             "vertices": [[float(x), float(y)] for (x, y) in footprint],
             "zmin": zmin,
             "zmax": zmax,
-        })
+        }
+        if height_source == "measuredHeight":
+            result.update({
+                "height_source": height_source,
+                "measured_height_m": measured_height,
+                "lod1_zmax": lod1_zmax,
+            })
+        results.append(result)
 
     return results
 

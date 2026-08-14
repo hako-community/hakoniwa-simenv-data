@@ -155,6 +155,7 @@ def extract_lod1(
     target_epsg = _epsg_number(scenario["horizontal_crs"])
     swap_latlon = bool(city_options.get("swap_latlon", True))
     base_epsilon = float(city_options.get("base_epsilon_m", 0.2))
+    measured_height_ids = set(city_options.get("measured_height_ids", []))
     pattern = city_options.get("pattern", "*bldg*_op.gml")
     origin = scenario["origin"]
     extent = scenario["extent"]
@@ -187,6 +188,7 @@ def extract_lod1(
             swap_latlon=swap_latlon,
             origin_xy=origin_xy,
             bounds=bounds,
+            measured_height_ids=measured_height_ids,
         )
         source_name = gml_path.relative_to(extracted_root).as_posix()
         for record in records:
