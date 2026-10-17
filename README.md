@@ -1,14 +1,20 @@
 # hakoniwa-simenv-data
 
-Hakoniwaシミュレーションで利用する環境モデルと、PLATEAU 3D都市モデルを
-MuJoCo・Mapray・ブラウザ表示向け資産へ変換するツール群です。
+Hakoniwaシミュレーションの「環境」を作るリポジトリです。物理（MuJoCo）・可視化
+（Godot・ブラウザ・Mapray）・環境値の検索が**同じ座標と標高の契約**で同じ世界を
+見られるよう、人が書く定義や公開データから各エンジン向けの資産を生成します。
 
-環境要因（風、温度、気圧、GPS強度等）を人が編集しやすいCreatorモデルで定義し、
-シミュレーションが高速に検索できる実行モデルへ変換します。あわせて、PLATEAU
-CityGMLから建物MJCF、地形HField、Mapray用GeoTIFF、ブラウザ用標高格子を同じ
-座標契約で生成します。
+扱う環境要素は次の3つです。
+
+| 機能 | 入力 | 生成物と使う側 |
+|---|---|---|
+| [環境値モデル](#環境モデル) | Creatorモデル（風・温度・気圧・GPS強度の基本値と局所zone） | 実行モデル（area / property / link）。箱庭の環境アセットが位置から高速検索（AABB/BVH）してPDUで配る |
+| [都市と地形](#plateau-city-pipeline) | PLATEAU CityGML（建物・TINRelief） | 建物MJCF・地形HField（MuJoCo）、GeoTIFF（Mapray）、標高格子（Three.js） |
+| [センサー用環境ジオメトリ](#センサー用環境ジオメトリ) | OBB JSON（単一真実源） | env.xml（MuJoCoのレイ）とenv.tscn（Godot）の同じ箱のペア |
 
 ![概要](docs/images/overview.png)
+
+（図は`docs/images/make_overview.py`で描き直せます。）
 
 ## 主な機能
 
@@ -35,7 +41,7 @@ CityGMLから建物MJCF、地形HField、Mapray用GeoTIFF、ブラウザ用標�
 
 このリポジトリが担当しないもの:
 
-- ドローンの物理計算と飛行制御
+- 機体（ドローン等）の物理計算と制御
 - Mapray/Three.js/Leafletのブラウザ表示
 - Hakoniwaシミュレーション全体の起動・終了管理
 - PLATEAU原本やMapray Cloud Datasetの再配布権限
@@ -45,12 +51,14 @@ CityGMLから建物MJCF、地形HField、Mapray用GeoTIFF、ブラウザ用標�
 
 - [`hakoniwa-geo-viewer`](https://github.com/hako-community/hakoniwa-geo-viewer)
 - [`hakoniwa-web3d-drone`](https://github.com/hako-community/hakoniwa-web3d-drone)
+- `hakoniwa-mujoco-sensor`（env.xml を mj_ray でセンシング）、`hakoniwa-godot-drone`（env.tscn を可視化）
 - Hakoniwa/MuJoCo runtime
 
 ## ディレクトリ構成
 
 ```text
 hakoniwa-simenv-data/
+|- docs/images/                       READMEの図（overview.pngはmake_overview.pyで生成）
 |- examples/datasets/                 サンプル環境モデルと生成例
 |- examples/sensor_envs/              センサー用OBBジオメトリとenv.xml/env.tscnペア
 |- src/hakoniwa_envsim/
@@ -105,6 +113,11 @@ pip install -r requirements-city-pipeline.txt
 ## 環境モデル
 
 ### Creatorモデルと実行モデル
+
+人が直感的に書けるCreatorモデルから、シミュレーションで使う詳細な実行モデルを作り、
+FastSearcherで位置から高速に引けるようにします。Visualizerで色や矢印に描いて確認できます。
+
+![環境値モデルの流れ](docs/images/envsim_flow.png)
 
 | レイヤ | 目的 | Schema |
 |---|---|---|
