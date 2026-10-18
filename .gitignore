@@ -214,3 +214,4 @@ deps/
 # 月面タイルの細かい格子（crater_field.py --fine が配置表と HField から作り直す・約 64 MB）
 examples/datasets/lunar/*/*.fine.hf.bin
 examples/datasets/lunar/*/*.fine.json
+examples/datasets/lunar/*/*.fine16.png

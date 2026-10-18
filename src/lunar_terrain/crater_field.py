@@ -20,7 +20,8 @@
   <tile>.craters.json   配置表（git 管理）。craters = [x, y, D, d, h] の並び（grid.json の局所座標 m）
   --fine のとき（git 管理外。配置表と hf.bin から決まるので、使う側が作り直す）:
   <tile>.fine.hf.bin    細かい格子（MuJoCo の HField のバイナリ：int32 行数・列数 ＋ float32 の局所の高さ。行 0 = 南 −y）
-  <tile>.fine.json      格子の大きさ・高さの範囲・材料の SHA256
+  <tile>.fine.json      格子の大きさ・高さの範囲・材料の SHA256・Unreal 用の倍率
+  <tile>.fine16.png     Unreal Landscape 用の 16bit 高さ画像（上の行 = +y）
 """
 from __future__ import annotations
 
@@ -133,7 +134,17 @@ def write_fine(tile: Path, meta: dict, fine: np.ndarray) -> Path:
     with open(path, "wb") as f:
         np.array([meta["nrow"], meta["ncol"]], dtype=np.int32).tofile(f)
         fine.astype(np.float32).tofile(f)
-    meta = dict(meta, file=path.name)
+    # Unreal 用の 16bit 高さ画像（上の行 = +y）。倍率の約束は dem_tile.py の grid.json の unreal と同じ
+    from PIL import Image
+    zmin, zmax = meta["z_local_min_m"], meta["z_local_max_m"]
+    q = np.round((np.flipud(fine) - zmin) / (zmax - zmin) * 65535.0).astype(np.uint16)
+    Image.fromarray(q).save(tile / f"{name}.fine16.png")
+    res = meta["resolution_m"]
+    meta = dict(meta, file=path.name, unreal={
+        "file": f"{name}.fine16.png", "row0": "north (+y)", "points": meta["ncol"],
+        "xy_scale_cm": res * 100.0, "z_scale_percent": (zmax - zmin) * 100.0 * 128.0 / 65535.0,
+        "location_z_cm": (zmin + (zmax - zmin) * 32768.0 / 65535.0) * 100.0,
+        "note": "grid.json の unreal と同じ約束（細かい格子）"})
     (tile / f"{name}.fine.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     return path
 
