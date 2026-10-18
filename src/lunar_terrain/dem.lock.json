@@ -1,0 +1,19 @@
+{
+ "_comment": "南極域 DEM の取得物（src/lunar_terrain/dem_fetch.py が取る。deps/ は git 管理外）。NASA の公開データ。利用時は citation を明記する。",
+ "files": [
+  {
+   "path": "lola_5mpp/Site01_final_adj_5mpp_surf.tif",
+   "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site01/Site01_final_adj_5mpp_surf.tif",
+   "sha256": "3ba7b97cb00a2bcf21189c3aeb535f65afc21207154ab9f0d43c5bdc1f7e747e",
+   "what": "LOLA 5 m/px DEM, Site01 Connecting ridge (16 km x 16 km, south polar stereographic, R=1737400)",
+   "citation": "Barker, M. K., et al. (2021), Improved LOLA elevation maps for south pole landing sites: Error estimates and their impact on illumination conditions, Planetary and Space Science 203, 105119, doi:10.1016/j.pss.2020.105119"
+  },
+  {
+   "path": "lola_5mpp/Site04_final_adj_5mpp_surf.tif",
+   "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site04/Site04_final_adj_5mpp_surf.tif",
+   "sha256": "38ff70dbdf2f066c2cfa94a646c3a59d653ce7f6b4528b15fc1b43ee397ce758",
+   "what": "LOLA 5 m/px DEM, Site04 Shackleton rim (candidate, not used yet)",
+   "citation": "Barker et al. (2021), doi:10.1016/j.pss.2020.105119"
+  }
+ ]
+}

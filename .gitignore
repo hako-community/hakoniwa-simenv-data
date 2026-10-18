@@ -207,3 +207,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# 月面の地形の取得物（DEM・位置暦のカーネル。src/lunar_terrain の dem_fetch.py・sun_ephem.py --fetch）
+deps/

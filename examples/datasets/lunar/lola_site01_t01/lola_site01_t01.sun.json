@@ -1,0 +1,49 @@
+{
+ "name": "lola_site01_t01",
+ "generator": "hakoniwa-simenv-data src/lunar_terrain/sun_ephem.py",
+ "utc": "2026-10-31T15:00:00Z",
+ "observer": {
+  "lat_deg": -89.33871847778641,
+  "lon_deg": -125.87979757238969,
+  "elevation_m": 1341.6905517578125,
+  "frame": "MOON_ME_DE440_ME421"
+ },
+ "kernels": [
+  "de440s.bsp",
+  "moon_pa_de440_200625.bpc",
+  "moon_de440_250416.tf",
+  "pck00011.tpc"
+ ],
+ "north_dir_local": [
+  -0.8102483443223872,
+  -0.5860867005169372
+ ],
+ "frame": "dir_local は grid.json の局所座標（右手系・z 上）で、原点から天体へ向かう単位ベクトル。方位は北から東回り",
+ "sun": {
+  "elevation_deg": 1.8268047530775489,
+  "azimuth_deg": 55.58858803698633,
+  "dir_local": [
+   -0.9409403453042138,
+   0.3370682972324829,
+   0.0318783559736302
+  ],
+  "distance_km": 148619894.52315548,
+  "angular_diameter_deg": 0.536412968270124,
+  "illuminance_lux": 129690.12123829017
+ },
+ "earth": {
+  "elevation_deg": 3.038216122644892,
+  "azimuth_deg": 129.4984426086468,
+  "dir_local": [
+   0.06302657677630692,
+   0.9966034495664385,
+   0.053002027622871574
+  ],
+  "distance_km": 368807.30289931124,
+  "angular_diameter_deg": 1.979622235250222,
+  "phase_angle_deg": 106.15929429166508,
+  "illuminated_fraction": 0.3608456018249883,
+  "earthshine_lux": 1.4827501693696303,
+  "earthshine_note": "ランバート球・アルベド 0.3・太陽 128000 lux at 1 AU の近似"
+ }
+}

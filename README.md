@@ -4,13 +4,14 @@ Hakoniwaシミュレーションの「環境」を作るリポジトリです。
 （Godot・ブラウザ・Mapray）・環境値の検索が**同じ座標と標高の契約**で同じ世界を
 見られるよう、人が書く定義や公開データから各エンジン向けの資産を生成します。
 
-扱う環境要素は次の3つです。
+扱う環境要素は次の4つです。
 
 | 機能 | 入力 | 生成物と使う側 |
 |---|---|---|
 | [環境値モデル](#環境モデル) | Creatorモデル（風・温度・気圧・GPS強度の基本値と局所zone） | 実行モデル（area / property / link）。箱庭の環境アセットが位置から高速検索（AABB/BVH）してPDUで配る |
 | [都市と地形](#plateau-city-pipeline) | PLATEAU CityGML（建物・TINRelief） | 建物MJCF・地形HField（MuJoCo）、GeoTIFF（Mapray）、標高格子（Three.js） |
 | [センサー用環境ジオメトリ](#センサー用環境ジオメトリ) | OBB JSON（単一真実源） | env.xml（MuJoCoのレイ）とenv.tscn（Godot）の同じ箱のペア |
+| [月面の地形と岩](#月面の地形と岩) | 月の極域DEM（GeoTIFF・極投影）、位置暦 | 地形タイル（MuJoCo HField・16bit高さ画像・共通標高格子）、岩の配置表（物理と絵で共有）、太陽・地球の向き |
 
 ![概要](docs/images/overview.png)
 
@@ -29,6 +30,7 @@ Hakoniwaシミュレーションの「環境」を作るリポジトリです。
 - PLATEAU TINReliefから共通標高格子、MuJoCo HField、GeoTIFF生成
 - Mapray Building/DEM Datasetアップロードのplan・実行・状態記録
 - Maprayの1回1,000ファイル制約に対応するCityGML/texture分割
+- 月の極域DEMからの地形タイル切り出し、サイズ頻度分布による岩の配置、位置暦による太陽・地球の向き
 
 ## 責任範囲
 
@@ -59,7 +61,7 @@ Hakoniwaシミュレーションの「環境」を作るリポジトリです。
 ```text
 hakoniwa-simenv-data/
 |- docs/images/                       READMEの図（overview.pngはmake_overview.pyで生成）
-|- examples/datasets/                 サンプル環境モデルと生成例
+|- examples/datasets/                 サンプル環境モデルと生成例（lunar/ は月面の地形タイル）
 |- examples/sensor_envs/              センサー用OBBジオメトリとenv.xml/env.tscnペア
 |- src/hakoniwa_envsim/
 |  |- creator/                        Creatorモデル変換
@@ -69,6 +71,7 @@ hakoniwa-simenv-data/
 |  |- asset/                          Hakoniwa PDU統合
 |  `- schemas/                        JSON schema
 |- src/city_pipeline/                 CityGML/MJCF/terrain変換実装
+|- src/lunar_terrain/                 月面の地形タイル・岩の配置表・位置暦
 |- src/gui/                           ブラウザ編集ツール
 |- tools/
 |  |- city_pipeline.py                Windows向け変換CLI
@@ -83,7 +86,8 @@ hakoniwa-simenv-data/
 - Python 3.9以上
 - 環境モデル機能: `requirements.txt`
 - City pipeline: `requirements-city-pipeline.txt`
-- MuJoCo検証時は`mujoco==3.8.0`
+- 月面の地形と岩: `requirements-lunar.txt`
+- MuJoCo検証時は`mujoco==3.9.0`
 - Maprayアップロード時はMapray Organization Token
 
 ## クローンとセットアップ
@@ -366,6 +370,50 @@ mocap body には速度 0 を返し、レーダーの Doppler が出なくなる
 | MuJoCo（obb2mjcf） | X=North, Y=West(-East), Z=Up |
 | Godot（obb2godot） | X=East, Y=Up, Z=North |
 
+## 月面の地形と岩
+
+月の極域DEMから地形タイルを1つ切り出し、物理（MuJoCo）と絵（Unreal・Godotなど）が**同じ点で同じ高さ**、
+**同じ岩**を持てるようにします。車両のモデルやエンジンの場面は使う側で作ります。
+
+```powershell
+pip install -r requirements-lunar.txt
+python src\lunar_terrain\dem_fetch.py                                       # deps\dem\ へ取得・SHA256照合（src\lunar_terrain\dem.lock.json）
+python src\lunar_terrain\dem_tile.py --name lola_site01_t01 --center -16250 -11750 --size 2000
+python src\lunar_terrain\sun_ephem.py --fetch                               # deps\ephem\ へNAIFのカーネル（ephem.lock.json）
+python src\lunar_terrain\sun_ephem.py examples\datasets\lunar\lola_site01_t01 --scan 2026-10-18 30   # 30日分の太陽・地球の高度と方位
+python src\lunar_terrain\sun_ephem.py examples\datasets\lunar\lola_site01_t01 --utc 2026-10-31T15:00:00Z
+python src\lunar_terrain\rock_field.py examples\datasets\lunar\lola_site01_t01                    # 岩の配置表
+```
+
+タイルのフォルダ（`examples/datasets/lunar/<name>/`）:
+
+| ファイル | 中身 | 使う側 |
+|---|---|---|
+| `<name>.grid.json` | 共通標高格子の契約（投影・原点の緯度経度と標高・解像度・高さの範囲・北の向き・出典・各エンジンの倍率） | すべて |
+| `<name>.hf.bin` | MuJoCoのHField（int32 nrow, int32 ncol, float32高さ[m]。行0 = −y） | 物理 |
+| `<name>.height16.png` | 16bit高さ画像（上の行 = +y。倍率は`grid.json`の`unreal`） | Unreal Landscapeなど |
+| `<name>.sun.json` | 原点から見た太陽・地球の高度・方位・局所座標の向き・照度（地球照を含む） | 描画の平行光源 |
+| `<name>.rocks.json` | 岩の配置表（楕円体の中心・半径・向き、絵のメッシュ） | 物理と絵 |
+
+座標の約束:
+
+- 局所座標 = 極投影の(X − X0, Y − Y0)、高さ = 標高 − 原点の標高。右手系・z上。
+- ★ 極投影の+yは北ではない。原点での北（緯度が増える向き。南極では極から遠ざかる向き）は`grid.json`の`north_dir_local`。
+  太陽・地球の方位はこれで局所座標に回す（`sun_ephem.py`）。
+- 極投影の縮尺のずれ（南緯89°で1.0001程度）は2 kmで0.2 m未満なので無視し、`grid.json`に記録する。
+
+岩:
+
+- 大きさはGolombek–Rappのサイズ頻度モデル（岩が覆う面積の割合`k`。既定1%）、位置は一様（種を固定）。
+  地面の高さと傾きは、タイルのHFieldだけのMJCFにMuJoCoのレイを当てて取る（そのHFieldを地面にする物理と同じ高さ）。
+- 岩は楕円体。物理は楕円体そのもの、絵は同じ楕円体の内側（半径の5%以内）に凹凸を付けたメッシュ。
+  MuJoCoのメッシュはgeomごとに大きさを変えられないため、楕円体にしておくと、使う側が車両の近くの岩だけを入れ替えて物理に持てる。
+- 2 km四方・`k` = 1%・直径0.2 m以上で約2.8万個。全部をMuJoCoに固定のgeomとして入れると遅い（1万個で1ステップ約0.1 ms増）。
+
+出典: NASA PGDA, LOLA 5 m/px DEM of south pole landing sites — Barker, M. K., et al. (2021), *Planetary and Space Science* 203, 105119,
+doi:10.1016/j.pss.2020.105119。位置暦はNASA NAIFのDE440系カーネル。岩のサイズ頻度はGolombek, M. P., and Rapp, D. (1997),
+*J. Geophys. Res.* 102(E2), 4117–4129。
+
 ## テスト
 
 基本機能:
@@ -375,6 +423,7 @@ python -m unittest discover -s tests -v
 ```
 
 City pipelineのテストには`requirements-city-pipeline.txt`の依存関係が必要です。
+月面の地形のテスト（`tests/test_lunar_terrain.py`）には`requirements-lunar.txt`の依存関係が必要です（DEMの取得は不要）。
 
 Schemaを単独検証する場合は、任意で`check-jsonschema`を利用できます。
 

@@ -1,0 +1,65 @@
+{
+ "name": "lola_site01_t01",
+ "generator": "hakoniwa-simenv-data src/lunar_terrain/dem_tile.py",
+ "source": {
+  "file": "Site01_final_adj_5mpp_surf.tif",
+  "sha256": "3ba7b97cb00a2bcf21189c3aeb535f65afc21207154ab9f0d43c5bdc1f7e747e",
+  "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/Site01/Site01_final_adj_5mpp_surf.tif",
+  "citation": "Barker, M. K., et al. (2021), Improved LOLA elevation maps for south pole landing sites: Error estimates and their impact on illumination conditions, Planetary and Space Science 203, 105119, doi:10.1016/j.pss.2020.105119",
+  "crs": "+proj=stere +lat_0=-90 +lat_ts=-90 +lon_0=0 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs=True",
+  "window_rowcol": [
+   1350,
+   350
+  ],
+  "pixel_registration": "center"
+ },
+ "origin": {
+  "stereo_xy_m": [
+   -16247.5,
+   -11752.5
+  ],
+  "lat_deg": -89.33871847778641,
+  "lon_deg": -125.87979757238969,
+  "elevation_m": 1341.6905517578125
+ },
+ "grid": {
+  "n": 401,
+  "resolution_m": 5.0,
+  "half_extent_m": 1000.0,
+  "z_local_min_m": -222.965576171875,
+  "z_local_max_m": 88.8385009765625
+ },
+ "frame": "local = (X - X0, Y - Y0, Z - Z0)。x, y は極投影の向き（FLU の世界座標として使う）",
+ "north_dir_local": [
+  -0.8102483443223872,
+  -0.5860867005169372
+ ],
+ "stereo_scale_factor": 1.0000333025248531,
+ "slope_deg": {
+  "mean": 9.059004533592452,
+  "p95": 16.472083917228026,
+  "max": 57.59710743224383,
+  "frac_10_20": 0.37942550108519224,
+  "frac_ge_20": 0.008600692781761307
+ },
+ "mujoco": {
+  "file": "lola_site01_t01.hf.bin",
+  "size": [
+   1000.0,
+   1000.0,
+   311.8040771484375,
+   10.0
+  ],
+  "geom_pos_z": -222.965576171875,
+  "row0": "south (-y)"
+ },
+ "unreal": {
+  "file": "lola_site01_t01.height16.png",
+  "row0": "north (+y)",
+  "points": 401,
+  "xy_scale_cm": 500.0,
+  "z_scale_percent": 60.900163080796524,
+  "location_z_cm": -6706.115868503591,
+  "note": "高さ[cm] = location_z + (値 − 32768)·z_scale/128。値 0 → z_local_min、65535 → z_local_max"
+ }
+}

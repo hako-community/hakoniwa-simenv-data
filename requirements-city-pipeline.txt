@@ -1,4 +1,4 @@
 -r requirements.txt
 shapely
 rasterio
-mujoco==3.8.0
+mujoco==3.9.0
