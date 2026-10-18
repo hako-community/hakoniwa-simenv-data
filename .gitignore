@@ -210,3 +210,7 @@ __marimo__/
 
 # 月面の地形の取得物（DEM・位置暦のカーネル。src/lunar_terrain の dem_fetch.py・sun_ephem.py --fetch）
 deps/
+
+# 月面タイルの細かい格子（crater_field.py --fine が配置表と HField から作り直す・約 64 MB）
+examples/datasets/lunar/*/*.fine.hf.bin
+examples/datasets/lunar/*/*.fine.json

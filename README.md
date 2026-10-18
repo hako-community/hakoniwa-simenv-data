@@ -382,7 +382,9 @@ python src\lunar_terrain\dem_tile.py --name lola_site01_t01 --center -16250 -117
 python src\lunar_terrain\sun_ephem.py --fetch                               # deps\ephem\ へNAIFのカーネル（ephem.lock.json）
 python src\lunar_terrain\sun_ephem.py examples\datasets\lunar\lola_site01_t01 --scan 2026-10-18 30   # 30日分の太陽・地球の高度と方位
 python src\lunar_terrain\sun_ephem.py examples\datasets\lunar\lola_site01_t01 --utc 2026-10-31T15:00:00Z
-python src\lunar_terrain\rock_field.py examples\datasets\lunar\lola_site01_t01                    # 岩の配置表
+python src\lunar_terrain\crater_field.py examples\datasets\lunar\lola_site01_t01                  # 小クレータの配置表（岩より先に）
+python src\lunar_terrain\rock_field.py examples\datasets\lunar\lola_site01_t01                    # 岩の配置表（小クレータのある地面に置く）
+python src\lunar_terrain\crater_field.py examples\datasets\lunar\lola_site01_t01 --fine           # 細かい格子（0.5 m・git管理外・数秒）
 ```
 
 タイルのフォルダ（`examples/datasets/lunar/<name>/`）:
@@ -394,6 +396,8 @@ python src\lunar_terrain\rock_field.py examples\datasets\lunar\lola_site01_t01  
 | `<name>.height16.png` | 16bit高さ画像（上の行 = +y。倍率は`grid.json`の`unreal`） | Unreal Landscapeなど |
 | `<name>.sun.json` | 原点から見た太陽・地球の高度・方位・局所座標の向き・照度（地球照を含む） | 描画の平行光源 |
 | `<name>.rocks.json` | 岩の配置表（楕円体の中心・半径・向き、絵のメッシュ） | 物理と絵 |
+| `<name>.craters.json` | 小クレータ（直径2〜20 m）の配置表（中心・直径・深さ・縁の高さ） | 物理と絵 |
+| `<name>.fine.hf.bin`・`.fine.json` | 細かい格子（0.5 m。5 mのHFieldを同じ三角形で補間＋小クレータ）。**git管理外**（配置表とHFieldから`--fine`で作り直す） | 物理と絵 |
 
 座標の約束:
 
@@ -405,10 +409,18 @@ python src\lunar_terrain\rock_field.py examples\datasets\lunar\lola_site01_t01  
 岩:
 
 - 大きさはGolombek–Rappのサイズ頻度モデル（岩が覆う面積の割合`k`。既定1%）、位置は一様（種を固定）。
-  地面の高さと傾きは、タイルのHFieldだけのMJCFにMuJoCoのレイを当てて取る（そのHFieldを地面にする物理と同じ高さ）。
+  地面の高さと傾きは、小クレータの配置表があれば細かい格子から、無ければタイルのHFieldだけのMJCFにMuJoCoのレイを当てて取る（どちらも物理と同じ高さ）。
 - 岩は楕円体。物理は楕円体そのもの、絵は同じ楕円体を平面で削った割れ面と凹凸のメッシュ（半径の20%以内。折れ角25°より大きい辺は頂点を分けて角を出す）。
   MuJoCoのメッシュはgeomごとに大きさを変えられないため、楕円体にしておくと、使う側が車両の近くの岩だけを入れ替えて物理に持てる。
 - 2 km四方・`k` = 1%・直径0.2 m以上で約2.8万個。全部をMuJoCoに固定のgeomとして入れると遅い（1万個で1ステップ約0.1 ms増）。
+
+小クレータ:
+
+- 5 mのDEMに無い直径2〜20 mのクレータを合成する（このタイルの場所には実測の細かい地形〔LROC NAC DTM〕が無い）。
+  数は小さいクレータの平衡分布 N(>D) = f_eq·1.54·D⁻² [個/m²]（1.54 D⁻²は幾何学的な飽和。f_eqはGault 1970で1〜10%、Xiao & Werner 2015で0.7〜3.9%。既定3%）。
+  2 km四方で約4.5万個。形はお椀と縁（深さ/直径 0.03〜0.2、新しいものはPike 1977の0.2。縁の高さ = 深さの0.18倍）、重なりは足し合わせる。
+- 高さの約束：細かい格子の各点 = 5 mのHFieldをMuJoCoと同じ三角形（各マスを(0,0)–(1,1)の対角で切る）で補間した高さ ＋ クレータ。
+  物理と絵はこの格子を同じ向きの三角形で使う。物理は車両の周りだけを持ち、走るにつれて入れ替える（使う側）。
 
 出典: NASA PGDA, LOLA 5 m/px DEM of south pole landing sites — Barker, M. K., et al. (2021), *Planetary and Space Science* 203, 105119,
 doi:10.1016/j.pss.2020.105119。位置暦はNASA NAIFのDE440系カーネル。岩のサイズ頻度はGolombek, M. P., and Rapp, D. (1997),

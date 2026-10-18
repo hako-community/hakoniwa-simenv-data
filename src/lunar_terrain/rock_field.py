@@ -173,23 +173,35 @@ def main() -> int:
     xy = rng.uniform(-half, half, (int(n * 1.2) + 10, 2))
     xy = xy[np.hypot(xy[:, 0], xy[:, 1]) > a.clear][:n]
 
-    # 地面の高さと法線：タイルの HField だけの MJCF へ鉛直にレイ（中心と ±0.5 m の 3 点で面を取る）
+    # 地面の高さと法線（中心と ±0.5 m の 3 点で面を取る）
     mj = grid["mujoco"]
     sx, sy, sz, base = mj["size"]
-    m = mujoco.MjModel.from_xml_string(
-        f'<mujoco><asset><hfield name="dem" file="{(tile / mj["file"]).as_posix()}"'
-        f' size="{sx:.3f} {sy:.3f} {sz:.4f} {base:.3f}"/></asset>'
-        f'<worldbody><geom type="hfield" hfield="dem" pos="0 0 {mj["geom_pos_z"]:.4f}" group="1"/></worldbody></mujoco>')
-    d = mujoco.MjData(m)
-    mujoco.mj_forward(m, d)
-    groups = np.zeros(mujoco.mjNGROUP, dtype=np.uint8)
-    groups[1] = 1
-    gid = np.zeros(1, dtype=np.int32)
-    top = grid["grid"]["z_local_max_m"] + 50.0
+    if (tile / f"{name}.craters.json").exists():
+        # 小クレータがあるタイル（ROV-28）：物理と絵が使う細かい格子（crater_field.py）の三角形の上に置く
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import crater_field
+        fine_meta, fine = crater_field.build_fine(tile)
+        fsx, fsy = fine_meta["half_extent_m"]
 
-    def ground(x, y):
-        dist = mujoco.mj_ray(m, d, np.array([x, y, top]), np.array([0, 0, -1.0]), groups, 1, -1, gid)
-        return top - dist
+        def ground(x, y):
+            return float(crater_field.tri_height(fine, fsx, fsy, np.array(x), np.array(y)))
+    else:
+        # 5 m の HField だけ：その MJCF へ鉛直にレイ（物理と同じ高さ）
+        m = mujoco.MjModel.from_xml_string(
+            f'<mujoco><asset><hfield name="dem" file="{(tile / mj["file"]).as_posix()}"'
+            f' size="{sx:.3f} {sy:.3f} {sz:.4f} {base:.3f}"/></asset>'
+            f'<worldbody><geom type="hfield" hfield="dem" pos="0 0 {mj["geom_pos_z"]:.4f}" group="1"/></worldbody></mujoco>')
+        d = mujoco.MjData(m)
+        mujoco.mj_forward(m, d)
+        groups = np.zeros(mujoco.mjNGROUP, dtype=np.uint8)
+        groups[1] = 1
+        gid = np.zeros(1, dtype=np.int32)
+        top = grid["grid"]["z_local_max_m"] + 50.0
+
+        def ground(x, y):
+            dist = mujoco.mj_ray(m, d, np.array([x, y, top]), np.array([0, 0, -1.0]), groups, 1, -1, gid)
+            return top - dist
 
     rocks = []
     for i in range(n):

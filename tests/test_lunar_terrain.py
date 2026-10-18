@@ -113,6 +113,15 @@ class LunarTileTest(unittest.TestCase):
             if not path.exists():
                 continue
             rocks = np.array(json.loads(path.read_text(encoding="utf-8"))["rocks"], dtype=np.float64)
+            if (tile / f"{name}.craters.json").exists():
+                # 小クレータのあるタイル：地面は細かい格子（crater_field.py）
+                import crater_field
+                meta, fine = crater_field.build_fine(tile)
+                fx, fy = meta["half_extent_m"]
+                for r in rocks[:: max(1, len(rocks) // 300)]:
+                    g = float(crater_field.tri_height(fine, fx, fy, np.array(r[0]), np.array(r[1])))
+                    self.assertLess(abs(r[2] - g), r[5] + 0.05, f"{name}: 岩 ({r[0]:.1f}, {r[1]:.1f}) の中心が地面から離れている")
+                continue
             mj = grid["mujoco"]
             sx, sy, sz, base = mj["size"]
             m = mujoco.MjModel.from_xml_string(
@@ -144,6 +153,96 @@ class LunarTileTest(unittest.TestCase):
             expect = per_m2 * ((2 * half) ** 2 - math.pi * mo["clear_radius_m"] ** 2)
             # ポアソンの揺らぎ（標準偏差 √N）の 4 倍まで
             self.assertLess(abs(doc["count"] - expect), 4.0 * math.sqrt(expect), f"{name}: 岩 {doc['count']} 個・期待値 {expect:.0f}")
+
+    def test_tri_height_matches_mujoco(self):
+        """crater_field.tri_height（numpy の三角形の補間）が MuJoCo の HField のレイと同じ高さ（細かい格子の土台）"""
+        import mujoco
+        import crater_field
+
+        for tile in TILES:
+            name, grid, _ = load_tile(tile)
+            _, z = crater_field.load_coarse(tile)
+            mj = grid["mujoco"]
+            sx, sy, sz, base = mj["size"]
+            m = mujoco.MjModel.from_xml_string(
+                f'<mujoco><asset><hfield name="dem" file="{(tile / mj["file"]).as_posix()}"'
+                f' size="{sx:.3f} {sy:.3f} {sz:.4f} {base:.3f}"/></asset>'
+                f'<worldbody><geom type="hfield" hfield="dem" pos="0 0 {mj["geom_pos_z"]:.4f}"/></worldbody></mujoco>')
+            d = mujoco.MjData(m)
+            mujoco.mj_forward(m, d)
+            gid = np.zeros(1, dtype=np.int32)
+            top = grid["grid"]["z_local_max_m"] + 50.0
+            pts = np.random.default_rng(3).uniform(-sx * 0.99, sx * 0.99, (500, 2))
+            ray = np.array([top - mujoco.mj_ray(m, d, np.array([x, y, top]), np.array([0, 0, -1.0]), None, 1, -1, gid) for x, y in pts])
+            err = np.abs(crater_field.tri_height(z, sx, sy, pts[:, 0], pts[:, 1]) - ray).max()
+            self.assertLess(err, 1e-4, f"{name}: 三角形の補間が MuJoCo と {err:.6f} m 違う")
+
+    def test_crater_profile(self):
+        """クレータの形：中心 −d、縁 +h で内外がつながり、半径の 3 倍で 0"""
+        import crater_field
+
+        p = crater_field.crater_profile(np.array([0.0, 1.0 - 1e-9, 1.0, 3.0 - 1e-9, 3.0, 5.0]), 1.0, 0.18)
+        self.assertAlmostEqual(p[0], -1.0)
+        self.assertAlmostEqual(p[1], 0.18, places=6)
+        self.assertAlmostEqual(p[2], 0.18, places=6)
+        self.assertAlmostEqual(p[3], 0.0, places=6)
+        self.assertEqual(p[4], 0.0)
+        self.assertEqual(p[5], 0.0)
+
+    def test_craters_table(self):
+        """クレータの配置表：数が平衡の期待値に合う・範囲と出発点の周り・形の比"""
+        import crater_field
+
+        for tile in TILES:
+            name, grid, _ = load_tile(tile)
+            path = tile / f"{name}.craters.json"
+            if not path.exists():
+                continue
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            mo = doc["model"]
+            c = np.array(doc["craters"], dtype=np.float64)
+            self.assertEqual(len(c), doc["count"])
+            half = grid["grid"]["half_extent_m"] - mo["margin_m"]
+            self.assertTrue((np.abs(c[:, :2]) <= half + 1e-6).all())
+            self.assertTrue((np.hypot(c[:, 0], c[:, 1]) >= mo["clear_radius_m"] + 3.0 * c[:, 2] / 2 - 1e-3).all(), "出発点の周りにクレータがある")
+            self.assertTrue(((c[:, 2] >= mo["dmin_m"] - 1e-3) & (c[:, 2] <= mo["dmax_m"] + 1e-3)).all())
+            ratio = c[:, 3] / c[:, 2]
+            self.assertTrue(((ratio >= 0.03 - 1e-3) & (ratio <= 0.2 + 1e-3)).all(), "深さ / 直径が 0.03〜0.2 の外")
+            self.assertTrue(np.allclose(c[:, 4], 0.18 * c[:, 3], atol=2e-4))
+            # 出発点の周りを除く前の期待値に対し、ポアソンの揺らぎの 4 倍まで（除いた分は 1% 未満）
+            expect = crater_field.equilibrium_count(mo["f_eq"], mo["dmin_m"], mo["dmax_m"], (2 * half) ** 2)
+            self.assertLess(abs(doc["count"] - expect), 4.0 * math.sqrt(expect) + 0.01 * expect)
+            # 大きさの分布：N(>D) ∝ D⁻² なので、D ≥ 2·dmin は全体のおよそ 1/4
+            frac = float((c[:, 2] >= 2 * mo["dmin_m"]).mean())
+            want = ((2 * mo["dmin_m"]) ** -2 - mo["dmax_m"] ** -2) / (mo["dmin_m"] ** -2 - mo["dmax_m"] ** -2)
+            self.assertAlmostEqual(frac, want, delta=0.01)
+
+    def test_fine_grid(self):
+        """細かい格子：クレータから遠い点は 5 m の三角形の高さそのもの、クレータの中心は −d 前後へ下がる"""
+        import crater_field
+
+        for tile in TILES:
+            name, grid, _ = load_tile(tile)
+            if not (tile / f"{name}.craters.json").exists():
+                continue
+            meta, fine = crater_field.build_fine(tile)
+            _, z = crater_field.load_coarse(tile)
+            sx, sy = meta["half_extent_m"]
+            res = meta["resolution_m"]
+            self.assertEqual(fine.shape, (meta["nrow"], meta["ncol"]))
+            # 原点は clear の中なので、原点の周りの点は 5 m の三角形と一致
+            n0 = int(round(sx / res))
+            ys, xs = np.mgrid[-10:11, -10:11]
+            got = fine[n0 + ys, n0 + xs]
+            want = crater_field.tri_height(z, sx, sy, xs * res, ys * res)
+            self.assertLess(np.abs(got - want).max(), 1e-9)
+            # 大きめのクレータの中心は、周りの 5 m の地面より d の 6 割以上下がる（重なりで多少ずれる）
+            doc = json.loads((tile / f"{name}.craters.json").read_text(encoding="utf-8"))
+            big = [q for q in doc["craters"] if q[2] >= 10.0][:50]
+            for x, y, D, d, h in big:
+                r, cidx = int(round((y + sy) / res)), int(round((x + sx) / res))
+                drop = float(crater_field.tri_height(z, sx, sy, np.array(cidx * res - sx), np.array(r * res - sy))) - fine[r, cidx]
+                self.assertGreater(drop, 0.6 * d, f"{name}: クレータ ({x:.1f}, {y:.1f}) の中心が下がっていない")
 
     def test_golombek_rapp(self):
         """k = 1% のとき、直径 0.2 m 以上の岩は約 0.007 個/m²（Golombek & Rapp 1997 の式を数値積分した値）"""
