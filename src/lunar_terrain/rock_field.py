@@ -5,7 +5,7 @@
 岩の大きさは Golombek–Rapp のモデル（岩が覆う面積の割合 F(>D) = k·exp(−q·D)、q = 1.79 + 0.152/k）から、
 位置は一様（種を固定）。地面の高さと傾きは、タイルの HField（grid.json の mujoco）だけの MJCF を組み、
 MuJoCo のレイで取る（その HField を地面にする物理と同じ高さ）。
-岩の形は楕円体。物理は楕円体そのものを使い、絵は同じ楕円体の内側に凹凸を付けたメッシュで描く
+岩の形は楕円体。物理は楕円体そのものを使い、絵は同じ楕円体を内側へ削ったメッシュ（平面で切った割れ面・むら・ざらつき、深さは半径の bump まで）で描く
 （MuJoCo のメッシュは geom ごとに大きさを変えられないので、楕円体なら使う側が近くの岩だけ入れ替えて持てる）。
 
 書き出し（タイルのフォルダ）:
@@ -61,20 +61,78 @@ def icosphere(level: int) -> tuple[np.ndarray, np.ndarray]:
     return np.array(v), np.array(f, dtype=np.int32)
 
 
-def rock_meshes(n: int, bump: float, rng: np.random.Generator) -> list[dict]:
-    """凹凸のある単位球の内側のメッシュ n 種。半径は 1 − bump..1（物理の楕円体からはみ出さない）。"""
-    v, f = icosphere(2)
+def rock_meshes(n: int, bump: float, rng: np.random.Generator, level: int = 3) -> list[dict]:
+    """凹凸のある単位球の内側のメッシュ n 種。半径は 1 − bump..1（物理の楕円体からはみ出さない）。
+    level は正二十面体の分割の回数（3 で 642 頂点・1,280 三角形）。"""
+    v, f = icosphere(level)
     out = []
     for _ in range(n):
-        # 低い周波数の凹凸：ランダムな向きの余弦の和を 0..1 に
-        dirs = rng.normal(size=(6, 3))
-        dirs /= np.linalg.norm(dirs, axis=1, keepdims=True)
-        s = sum(np.cos(rng.uniform(2, 5) * (v @ d) + rng.uniform(0, 2 * math.pi)) for d in dirs)
-        s = (s - s.min()) / (s.max() - s.min())
-        r = 1.0 - bump * s
-        out.append({"vertices": [round(float(x), 5) for x in (v * r[:, None]).ravel()],
-                    "triangles": [int(i) for i in f.ravel()]})
+        p, t = split_hard_edges(v * rock_radius(v, bump, rng)[:, None], f)
+        out.append({"vertices": [round(float(x), 5) for x in p.ravel()],
+                    "triangles": [int(i) for i in t.ravel()]})
     return out
+
+
+def split_hard_edges(p: np.ndarray, f: np.ndarray, hard_deg: float = 25.0) -> tuple[np.ndarray, np.ndarray]:
+    """面の向きが hard_deg より大きく折れる所で頂点を分ける（割れ面の角）。
+    ビューアは頂点を共有する面どうしで法線をならすので、分けた所だけ角がくっきり出る。位置は変えない。"""
+    fn = np.cross(p[f[:, 1]] - p[f[:, 0]], p[f[:, 2]] - p[f[:, 0]])
+    fn /= np.linalg.norm(fn, axis=1, keepdims=True)
+    fn *= np.sign(np.einsum("ij,ij->i", fn, p[f].mean(axis=1)))[:, None]   # 外向きにそろえる
+    cos_hard = math.cos(math.radians(hard_deg))
+    incident: list[list[int]] = [[] for _ in range(len(p))]
+    for fi, tri in enumerate(f):
+        for vi in tri:
+            incident[vi].append(fi)
+    new_p, t = [], f.copy()
+    for vi, faces in enumerate(incident):
+        # 頂点の周りの面を、向きの近いものどうしの塊に分ける（塊ごとに頂点を 1 つ）
+        groups: list[list[int]] = []
+        for fi in faces:
+            for g in groups:
+                if any(fn[fi] @ fn[gj] >= cos_hard for gj in g):
+                    g.append(fi)
+                    break
+            else:
+                groups.append([fi])
+        for g in groups:
+            idx = len(new_p)
+            new_p.append(p[vi])
+            for fi in g:
+                t[fi][f[fi] == vi] = idx      # ★ 元の番号（f）で引く。t で引くと付け替え済みの新しい番号とぶつかる
+    return np.array(new_p), t
+
+
+def _cos_noise(v: np.ndarray, rng: np.random.Generator, n: int, f_lo: float, f_hi: float) -> np.ndarray:
+    """ランダムな向きの余弦の和を 0..1 に（球面上のなめらかなむら）。"""
+    dirs = rng.normal(size=(n, 3))
+    dirs /= np.linalg.norm(dirs, axis=1, keepdims=True)
+    s = sum(np.cos(rng.uniform(f_lo, f_hi) * (v @ d) + rng.uniform(0, 2 * math.pi)) for d in dirs)
+    return (s - s.min()) / (s.max() - s.min())
+
+
+def rock_radius(v: np.ndarray, bump: float, rng: np.random.Generator) -> np.ndarray:
+    """単位球の頂点 v の向きごとの半径（1 − bump..1）。削るだけなので物理の楕円体からはみ出さない（K48）。
+
+    ① 平面で切る：割れ面（平らな面と角）。9〜14 枚を深さ 0.35〜1.0·bump、半分の岩は 1.0·bump の大きな割れ面を 1 枚足す
+    ② 低い周波数のむら（0.1·bump）③ 細かいざらつき（0.06·bump）
+    ★ 細い割れ目（溝）は入れない：level 3 の格子（辺 約 0.16）より細い溝は三角形 2 枚の穴になり、低い太陽で真っ黒に見えた。
+      ざらつきの周波数も格子で表せる範囲（6〜12）にとどめる。
+    """
+    m = int(rng.integers(9, 15))
+    nrm = rng.normal(size=(m, 3))
+    nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
+    dist = 1.0 - bump * rng.uniform(0.35, 1.0, m)
+    if rng.uniform() < 0.5:
+        nrm = np.vstack([nrm, rng.normal(size=(1, 3))])
+        nrm[-1] /= np.linalg.norm(nrm[-1])
+        dist = np.append(dist, 1.0 - bump)
+    c = v @ nrm.T                                                   # 頂点の向きと平面の法線の内積
+    r = np.min(np.where(c > 1e-6, dist / np.maximum(c, 1e-6), 1.0), axis=1)
+    r = np.minimum(r, 1.0)
+    r -= 0.1 * bump * _cos_noise(v, rng, 6, 2, 5)
+    r -= 0.06 * bump * _cos_noise(v, rng, 12, 6, 12)
+    return np.clip(r, 1.0 - bump, 1.0)
 
 
 def quat_from_matrix(r: np.ndarray) -> np.ndarray:
@@ -95,7 +153,7 @@ def main() -> int:
     ap.add_argument("--clear", type=float, default=15.0, help="原点（ローバの出発点）の周りに岩を置かない半径 [m]")
     ap.add_argument("--margin", type=float, default=5.0, help="タイルの端から内側へ空ける幅 [m]")
     ap.add_argument("--variants", type=int, default=8, help="絵のメッシュの種類")
-    ap.add_argument("--bump", type=float, default=0.05, help="絵の凹凸の深さ（楕円体の半径に対する割合）")
+    ap.add_argument("--bump", type=float, default=0.2, help="絵の凹凸の深さ（楕円体の半径に対する割合。K48 で 0.05 → 0.2）")
     a = ap.parse_args()
     tile = Path(a.tile).resolve()
     name = tile.name

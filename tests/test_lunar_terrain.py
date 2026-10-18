@@ -79,8 +79,29 @@ class LunarTileTest(unittest.TestCase):
             for mesh in doc["meshes"]:
                 r = np.linalg.norm(np.reshape(mesh["vertices"], (-1, 3)), axis=1)
                 self.assertLessEqual(r.max(), 1.0 + 1e-5, "絵のメッシュが楕円体の外に出ている")
-                self.assertGreater(r.min(), 0.8)
+                self.assertGreaterEqual(r.min(), 0.8 - 1e-5, "絵のメッシュの凹凸が深すぎる（bump 0.2 まで）")
                 self.assertEqual(len(mesh["triangles"]) % 3, 0)
+
+    def test_rock_meshes_are_closed(self):
+        """絵のメッシュは閉じた面：位置で見た辺はどれもちょうど 2 枚の三角形が共有し、面積 0 の三角形が無い
+        （角を出すために頂点を分けても、つながりは変わらない）"""
+        for tile in TILES:
+            name, _, _ = load_tile(tile)
+            path = tile / f"{name}.rocks.json"
+            if not path.exists():
+                continue
+            for k, mesh in enumerate(json.loads(path.read_text(encoding="utf-8"))["meshes"]):
+                p = np.reshape(mesh["vertices"], (-1, 3))
+                t = np.reshape(mesh["triangles"], (-1, 3))
+                area = np.linalg.norm(np.cross(p[t[:, 1]] - p[t[:, 0]], p[t[:, 2]] - p[t[:, 0]]), axis=1)
+                self.assertGreater(area.min(), 1e-8, f"mesh {k}: 面積 0 の三角形")
+                key = [tuple(np.round(x, 4)) for x in p]
+                edges = {}
+                for tri in t:
+                    for a, b in ((0, 1), (1, 2), (2, 0)):
+                        e = tuple(sorted((key[tri[a]], key[tri[b]])))
+                        edges[e] = edges.get(e, 0) + 1
+                self.assertEqual(set(edges.values()), {2}, f"mesh {k}: 閉じていない（2 枚で共有されない辺がある）")
 
     def test_rocks_sit_on_ground(self):
         """岩の中心が地面から自分の高さ（c）の範囲にある：地面は HField を双線形でなく三角形で引くので MuJoCo のレイで"""
