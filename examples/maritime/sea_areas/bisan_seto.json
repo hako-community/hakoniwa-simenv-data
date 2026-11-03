@@ -1,0 +1,65 @@
+{
+  "_comment": "海域プリセット（SHP-28）：瀬戸内海 備讃瀬戸（東部）。備讃瀬戸東航路と、それを南北に横切る宇高東航路。区域は海上交通安全法施行令 別表第二の定義のまま。ただし東航路の西端の 2 点（小瀬居島島頂基準）は座標が手元に無いので、大槌島島頂基準の 2 点（第五号・第八号）の線で切った（宇高東航路との交差は含む）。大槌島島頂は Wikipedia（地理院の値）。航路は右側通航・速力 12 kt 以下。交通量・船種・潮流の最強は代表値（公表統計・潮汐表で未確認）。航海用ではない",
+  "name": "bisan_seto",
+  "title": "瀬戸内海 備讃瀬戸（東部）",
+  "geo_origin": { "lat_deg": 34.4336, "lon_deg": 134.0608 },
+  "source": "海上交通安全法施行令（昭和48年政令第5号）別表第二 備讃瀬戸東航路・宇高東航路（e-Gov 法令 API で取得、2026-10-24）。大槌島島頂：北緯34度25分08.06秒 東経133度55分21.57秒（Wikipedia 日本語版）",
+  "references": {
+    "地蔵埼灯台": [34.415833, 134.235278],
+    "カナワ岩灯標": [34.421667, 134.130278],
+    "男木島灯台": [34.433611, 134.060833],
+    "爼石灯標": [34.447222, 133.969167],
+    "大槌島島頂": [34.418907, 133.922660]
+  },
+  "zones": [
+    {
+      "name": "備讃瀬戸東航路",
+      "kind": "route",
+      "keep_right": true,
+      "speed_limit_kt": 12.0,
+      "points": [
+        { "ref": "地蔵埼灯台", "bearing_deg": 211.0, "dist_m": 2600.0 },
+        { "ref": "カナワ岩灯標", "bearing_deg": 32.0, "dist_m": 770.0 },
+        { "ref": "男木島灯台", "bearing_deg": 353.0, "dist_m": 480.0 },
+        { "ref": "男木島灯台", "bearing_deg": 248.0, "dist_m": 4500.0 },
+        { "ref": "大槌島島頂", "bearing_deg": 144.0, "dist_m": 2100.0 },
+        { "ref": "大槌島島頂", "bearing_deg": 114.0, "dist_m": 900.0 },
+        { "ref": "男木島灯台", "bearing_deg": 265.0, "dist_m": 4740.0 },
+        { "ref": "男木島灯台", "bearing_deg": 353.0, "dist_m": 1960.0 },
+        { "ref": "カナワ岩灯標", "bearing_deg": 25.0, "dist_m": 2200.0 },
+        { "ref": "地蔵埼灯台", "bearing_deg": 221.0, "dist_m": 1230.0 }
+      ],
+      "_ends": "start＝東端（第十二号・第一号）、end＝西端（第五号・第八号）。正の向き＝西航、右（北）半分",
+      "ends": { "start": [9, 0], "end": [4, 5] },
+      "positive_direction": "westbound"
+    }
+  ],
+  "traffic": [
+    { "name": "westbound", "zone": "備讃瀬戸東航路", "direction": "positive", "rate_per_hour": 14.0, "speed_kt": [9.0, 12.0], "mix": "merchant" },
+    { "name": "eastbound", "zone": "備讃瀬戸東航路", "direction": "negative", "rate_per_hour": 14.0, "speed_kt": [9.0, 12.0], "mix": "merchant" },
+    {
+      "name": "uko_east_route", "kind": "crossing", "rate_per_hour": 2.0, "both_ways": true,
+      "_path": "宇高東航路の中心（北端＝第一号・第六号の中点、中央＝第二号・第五号の中点、南端＝第三号・第四号の中点）を南北に横切る",
+      "path_points": [
+        { "mid": [{ "ref": "爼石灯標", "bearing_deg": 74.0, "dist_m": 590.0 }, { "ref": "爼石灯標", "bearing_deg": 74.0, "dist_m": 160.0 }] },
+        { "mid": [{ "ref": "爼石灯標", "bearing_deg": 140.0, "dist_m": 2970.0 }, { "ref": "爼石灯標", "bearing_deg": 151.0, "dist_m": 2350.0 }] },
+        { "mid": [{ "ref": "男木島灯台", "bearing_deg": 242.0, "dist_m": 7130.0 }, { "ref": "男木島灯台", "bearing_deg": 244.0, "dist_m": 7780.0 }] }
+      ],
+      "speed_kt": [10.0, 12.0], "mix": "merchant"
+    },
+    {
+      "name": "fishing", "kind": "loiter", "count": 6, "has_ais": false,
+      "_area": "航路の北側（カナワ岩の北、航路の外）で低速で動き回る非 AIS の小型漁船",
+      "box_enu": [[3000.0, 2600.0], [8500.0, 4500.0]],
+      "speed_kt": [1.0, 4.0], "mix": "fishing"
+    }
+  ],
+  "current": {
+    "_comment": "潮流（代表値の仮定）：航路の軸に沿う往復流、最強 2.5 kt・半日周期（M2 12.42 h）。航路の外は 1.5 km で弱まる。phase_deg = 90 で t = 0 に西流（正の向き）の最強",
+    "zone": "備讃瀬戸東航路",
+    "peak_kt": 2.5,
+    "period_s": 44712.0,
+    "phase_deg": 90.0,
+    "outside_decay_m": 1500.0
+  }
+}

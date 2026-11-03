@@ -1,0 +1,62 @@
+{
+  "_comment": "海域プリセット（SHP-28）：東京湾 浦賀水道。航路の区域は海上交通安全法施行令 別表第二の定義（灯台からの真方位・距離）をそのまま持ち、scenarios/sea_area.py が局所 ENU（原点 geo_origin、正距円筒近似＝物理の local_enu.hpp と同じ式）の多角形にする。航路は右側通航・速力 12 kt 以下（海上交通安全法）。交通量・船種・潮流の最強は代表値（公表統計・潮汐表で未確認。実データ・潮汐表で差し替える前提）。航海用ではない",
+  "name": "uraga_suido",
+  "title": "東京湾 浦賀水道",
+  "geo_origin": { "lat_deg": 35.2561, "lon_deg": 139.7453 },
+  "source": "海上交通安全法施行令（昭和48年政令第5号）別表第二 浦賀水道航路・中ノ瀬航路（e-Gov 法令 API で取得、2026-10-24）",
+  "references": {
+    "第二海堡灯台": [35.311667, 139.741389],
+    "観音埼灯台": [35.256111, 139.745278],
+    "海獺島灯標": [35.211944, 139.735278]
+  },
+  "zones": [
+    {
+      "name": "浦賀水道航路",
+      "kind": "route",
+      "keep_right": true,
+      "speed_limit_kt": 12.0,
+      "points": [
+        { "ref": "第二海堡灯台", "bearing_deg": 320.0, "dist_m": 2600.0 },
+        { "ref": "第二海堡灯台", "bearing_deg": 280.0, "dist_m": 320.0 },
+        { "ref": "観音埼灯台", "bearing_deg": 90.0, "dist_m": 3700.0 },
+        { "ref": "海獺島灯標", "bearing_deg": 90.0, "dist_m": 4650.0 },
+        { "ref": "海獺島灯標", "bearing_deg": 90.0, "dist_m": 2900.0 },
+        { "ref": "観音埼灯台", "bearing_deg": 90.0, "dist_m": 1950.0 },
+        { "ref": "第二海堡灯台", "bearing_deg": 300.0, "dist_m": 3900.0 }
+      ],
+      "_ends": "航路の両端（多角形の辺の頂点の番号、0 始まり）。start → end を「正の向き」とし、その向きに進む船は右（東）半分",
+      "ends": { "start": [3, 4], "end": [6, 0] },
+      "positive_direction": "northbound"
+    }
+  ],
+  "traffic": [
+    {
+      "name": "northbound", "zone": "浦賀水道航路", "direction": "positive", "rate_per_hour": 12.0,
+      "speed_kt": [9.0, 12.0], "mix": "merchant"
+    },
+    {
+      "name": "southbound", "zone": "浦賀水道航路", "direction": "negative", "rate_per_hour": 12.0,
+      "speed_kt": [9.0, 12.0], "mix": "merchant"
+    },
+    {
+      "name": "kurihama_kanaya_ferry", "kind": "crossing", "rate_per_hour": 1.0, "both_ways": true,
+      "_path": "東京湾フェリー（久里浜〜金谷）の概略の針路（港の位置は概略）。航路の南端の南を横切る",
+      "path_geo": [[35.2240, 139.7160], [35.1960, 139.7700], [35.1700, 139.8180]],
+      "speed_kt": [12.0, 13.0], "mix": "ferry"
+    },
+    {
+      "name": "fishing", "kind": "loiter", "count": 4, "has_ais": false,
+      "_area": "航路の南部の東側（金谷沖、航路の外）で低速で動き回る非 AIS の小型漁船（レーダだけで見える）。観音埼の西は陸（三浦半島）なので置かない",
+      "box_enu": [[4300.0, -4500.0], [6500.0, -500.0]],
+      "speed_kt": [1.0, 4.0], "mix": "fishing"
+    }
+  ],
+  "current": {
+    "_comment": "潮流（代表値の仮定）：航路の軸に沿う往復流、最強 1.5 kt・半日周期（M2 12.42 h）。航路の外は 1.5 km で弱まる。t = 0 で北流の最強の phase_deg = 90（sin）",
+    "zone": "浦賀水道航路",
+    "peak_kt": 1.5,
+    "period_s": 44712.0,
+    "phase_deg": 90.0,
+    "outside_decay_m": 1500.0
+  }
+}

@@ -20,7 +20,7 @@
                 "items": { "type": "number" },
                 "minItems": 3,
                 "maxItems": 3,
-                "description": "3D wind velocity vector [x,y,z]"
+                "description": "3D wind velocity vector [x,y,z] in m/s (ENU frame)"
               },
               "temperature": {
                 "type": "number",
@@ -28,16 +28,82 @@
               },
               "sea_level_atm": {
                 "type": "number",
-                "description": "Relative sea level atmospheric pressure"
+                "description": "Relative sea level atmospheric pressure in atm"
               },
               "gps_strength": {
                 "type": "number",
                 "minimum": 0.0,
                 "maximum": 1.0,
                 "description": "GPS signal strength (0.0 to 1.0, 1.0=best, 0.0=blocked)"
+              },
+              "visibility_m": {
+                "type": "number",
+                "minimum": 0.0,
+                "description": "Atmospheric visibility distance in meters (e.g. 50m=dense fog, 10000m=clear)"
+              },
+              "rain_rate_mm_h": {
+                "type": "number",
+                "minimum": 0.0,
+                "description": "Rainfall precipitation rate in mm/hour"
+              },
+              "current_velocity": {
+                "type": "array",
+                "items": { "type": "number" },
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "3D water current velocity vector [vx, vy, vz] in m/s (ENU frame)"
+              },
+              "water_density": {
+                "type": "number",
+                "minimum": 900.0,
+                "maximum": 1100.0,
+                "description": "Water density in kg/m^3 (seawater standard: ~1025.0)"
+              },
+              "water_depth": {
+                "type": "number",
+                "minimum": 0.0,
+                "description": "Local water depth H in meters from mean sea surface"
+              },
+              "tide_level": {
+                "type": "number",
+                "description": "Tidal deviation z_tide in meters from chart datum"
+              },
+              "wave_spectrum": {
+                "type": "object",
+                "properties": {
+                  "hs_m": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "description": "Significant wave height Hs in meters"
+                  },
+                  "tp_s": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "description": "Peak wave period Tp in seconds"
+                  },
+                  "wave_dir_rad": {
+                    "type": "number",
+                    "description": "Primary wave propagation direction in radians (or wave_dir_deg in degrees)"
+                  },
+                  "wave_dir_deg": {
+                    "type": "number",
+                    "description": "Primary wave propagation direction in degrees (clockwise from North)"
+                  },
+                  "gamma": {
+                    "type": "number",
+                    "minimum": 1.0,
+                    "description": "JONSWAP peak enhancement factor gamma (standard: 3.3, PM: 1.0)"
+                  },
+                  "seed": {
+                    "type": "integer",
+                    "description": "Deterministic random seed for wave component phases"
+                  }
+                },
+                "required": ["hs_m", "tp_s"],
+                "additionalProperties": false
               }
             },
-            "required": ["wind_velocity", "temperature", "sea_level_atm", "gps_strength"],
+            "required": ["wind_velocity"],
             "additionalProperties": false
           }
         },

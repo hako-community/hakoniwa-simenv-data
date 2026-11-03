@@ -28,6 +28,9 @@ Hakoniwaシミュレーションの「環境」を作るリポジトリです。
 - センサー用環境ジオメトリのペア生成（OBB JSON → MuJoCo env.xml ＋ Godot env.tscn）
 - 既存MuJoCo機体モデルへの建物geom統合と検証manifest生成
 - PLATEAU TINReliefから共通標高格子、MuJoCo HField、GeoTIFF生成
+- 海上環境モデル（風・波浪スペクトル・潮流ベクトル・水深・潮位・視程・降雨）のスキーマおよび `Disturbance` PDU I/O (`ShipIO`)
+- JONSWAPスペクトル・多成分Gerstner波の決定論的波面生成ライブラリ (Python `hakoniwa_envsim.wave` / C++ `wave_spectrum.hpp`)
+- 代表海域プリセット（東京湾浦賀水道、瀬戸内海備讃瀬戸）の航路幾何・通航帯 (TSS)・動的潮流場モデル
 - Mapray Building/DEM Datasetアップロードのplan・実行・状態記録
 - Maprayの1回1,000ファイル制約に対応するCityGML/texture分割
 - 月の極域DEMからの地形タイル切り出し、サイズ頻度分布による岩の配置、位置暦による太陽・地球の向き
@@ -60,10 +63,15 @@ Hakoniwaシミュレーションの「環境」を作るリポジトリです。
 
 ```text
 hakoniwa-simenv-data/
+|- config/                            環境スキーマ定義 (area_properties.schema.json 等)
 |- docs/images/                       READMEの図（overview.pngはmake_overview.pyで生成）
+|- include/hakoniwa_envsim/           C++ 共通ヘッダー (wave_spectrum.hpp 等)
 |- examples/datasets/                 サンプル環境モデルと生成例（lunar/ は月面の地形タイル）
 |- examples/sensor_envs/              センサー用OBBジオメトリとenv.xml/env.tscnペア
+|- examples/maritime/                 代表海域プリセット (浦賀水道・備讃瀬戸)・航路・潮流モデル
 |- src/hakoniwa_envsim/
+|  |- asset/                          船舶用 Disturbance PDU I/O (ship_io.py) 等
+|  |- wave/                           決定論的波浪スペクトルエンジン (wave_spectrum.py)
 |  |- creator/                        Creatorモデル変換
 |  |- model/                          実行モデルローダー
 |  |- fastsearch/                     AABB/BVH検索
